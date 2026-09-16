@@ -1,0 +1,51 @@
+export declare enum Role {
+    ADMIN = "ADMIN",
+    HUB_STAFF = "HUB_STAFF",
+    DRIVER = "DRIVER",
+    CUSTOMER = "CUSTOMER"
+}
+export declare enum ShipmentStatus {
+    CREATED = "CREATED",
+    PICKUP_SCHEDULED = "PICKUP_SCHEDULED",
+    PICKED_UP = "PICKED_UP",
+    AT_ORIGIN_HUB = "AT_ORIGIN_HUB",
+    IN_TRANSIT = "IN_TRANSIT",
+    AT_DESTINATION_HUB = "AT_DESTINATION_HUB",
+    ASSIGNED_TO_DRIVER = "ASSIGNED_TO_DRIVER",
+    OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY",
+    DELIVERED = "DELIVERED",
+    DELIVERY_FAILED = "DELIVERY_FAILED",
+    RESCHEDULED = "RESCHEDULED",
+    CANCELLED = "CANCELLED",
+    RETURNED = "RETURNED"
+}
+export declare enum ServiceType {
+    STANDARD = "STANDARD",
+    EXPRESS = "EXPRESS"
+}
+export declare enum PaymentType {
+    PREPAID = "PREPAID",
+    COD = "COD"
+}
+export declare enum PaymentStatus {
+    PENDING = "PENDING",
+    COLLECTED = "COLLECTED",
+    FAILED = "FAILED",
+    REFUNDED = "REFUNDED"
+}
+export declare enum VehicleStatus {
+    AVAILABLE = "AVAILABLE",
+    ASSIGNED = "ASSIGNED",
+    IN_USE = "IN_USE",
+    MAINTENANCE = "MAINTENANCE",
+    INACTIVE = "INACTIVE"
+}
+export declare enum FailureReason {
+    CUSTOMER_UNAVAILABLE = "CUSTOMER_UNAVAILABLE",
+    WRONG_ADDRESS = "WRONG_ADDRESS",
+    CUSTOMER_REFUSED = "CUSTOMER_REFUSED",
+    PHONE_UNREACHABLE = "PHONE_UNREACHABLE",
+    ADDRESS_INACCESSIBLE = "ADDRESS_INACCESSIBLE",
+    OTHER = "OTHER"
+}
+//# sourceMappingURL=enums.d.ts.map

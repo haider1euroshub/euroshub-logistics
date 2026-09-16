@@ -1,0 +1,1 @@
+{"version":3,"file":"hub.d.ts","sourceRoot":"","sources":["hub.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,eAAO,MAAM,eAAe;;;;;;;;;;;;;;;;;;;;;;;;;;;EAS1B,CAAC;AAEH,MAAM,MAAM,cAAc,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,eAAe,CAAC,CAAC;AAE7D,eAAO,MAAM,eAAe;;;;;;;;;;;;;;;;;;;;;;;;;;;EAA4B,CAAC;AACzD,MAAM,MAAM,cAAc,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,eAAe,CAAC,CAAC"}

@@ -1,0 +1,387 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  HUB_STAFF
+  DRIVER
+  CUSTOMER
+}
+
+enum ShipmentStatus {
+  CREATED
+  PICKUP_SCHEDULED
+  PICKED_UP
+  AT_ORIGIN_HUB
+  IN_TRANSIT
+  AT_DESTINATION_HUB
+  ASSIGNED_TO_DRIVER
+  OUT_FOR_DELIVERY
+  DELIVERED
+  DELIVERY_FAILED
+  RESCHEDULED
+  CANCELLED
+  RETURNED
+}
+
+enum ServiceType {
+  STANDARD
+  EXPRESS
+}
+
+enum PaymentType {
+  PREPAID
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  COLLECTED
+  FAILED
+  REFUNDED
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_USE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum FailureReason {
+  CUSTOMER_UNAVAILABLE
+  WRONG_ADDRESS
+  CUSTOMER_REFUSED
+  PHONE_UNREACHABLE
+  ADDRESS_INACCESSIBLE
+  OTHER
+}
+
+model User {
+  id              String   @id @default(cuid())
+  supabaseUserId  String   @unique
+  email           String   @unique
+  fullName        String
+  phone           String?
+  role            Role
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customerProfile CustomerProfile?
+  driverProfile   DriverProfile?
+  hubStaffProfile HubStaffProfile?
+
+  @@index([role])
+  @@index([email])
+}
+
+model CustomerProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shipments  Shipment[]
+  createdAt  DateTime @default(now())
+}
+
+model DriverProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  homeHubId    String?
+  homeHub      Hub?     @relation(fields: [homeHubId], references: [id], onDelete: SetNull)
+  vehicle      Vehicle?
+  assignments  DriverAssignment[]
+  assignedShipments Shipment[] @relation("AssignedDriver")
+  createdAt    DateTime @default(now())
+
+  @@index([homeHubId])
+}
+
+model HubStaffProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hubId     String
+  hub       Hub      @relation(fields: [hubId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([hubId])
+}
+
+model Hub {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  address    String
+  city       String
+  phone      String?
+  latitude   Float?
+  longitude  Float?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  staff                HubStaffProfile[]
+  drivers              DriverProfile[]
+  vehicles             Vehicle[]
+  originShipments      Shipment[] @relation("OriginHub")
+  destinationShipments Shipment[] @relation("DestinationHub")
+  movementsFrom        HubMovement[] @relation("FromHub")
+  movementsTo          HubMovement[] @relation("ToHub")
+  statusHistories      ShipmentStatusHistory[]
+
+  @@index([city])
+  @@index([code])
+}
+
+model Vehicle {
+  id             String        @id @default(cuid())
+  registrationNo String        @unique
+  type           String
+  makeModel      String?
+  status         VehicleStatus @default(AVAILABLE)
+  currentMileage Int?
+  notes          String?
+  hubId          String?
+  hub            Hub?          @relation(fields: [hubId], references: [id], onDelete: SetNull)
+  driverId       String?       @unique
+  driver         DriverProfile? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([status])
+  @@index([hubId])
+}
+
+model Shipment {
+  id               String         @id @default(cuid())
+  trackingNumber   String         @unique
+  customerId       String
+  customer         CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  senderName       String
+  senderPhone      String
+  senderAddress    String
+  senderCity       String
+  senderAddressExtra String?
+
+  receiverName     String
+  receiverPhone    String
+  receiverAddress  String
+  receiverCity     String
+  receiverAddressExtra String?
+
+  originHubId      String?
+  originHub        Hub?  @relation("OriginHub", fields: [originHubId], references: [id], onDelete: SetNull)
+  destinationHubId String?
+  destinationHub   Hub?  @relation("DestinationHub", fields: [destinationHubId], references: [id], onDelete: SetNull)
+
+  serviceType      ServiceType   @default(STANDARD)
+  paymentType      PaymentType
+  codAmount        Int?          // required if paymentType = COD, else null
+
+  status           ShipmentStatus @default(CREATED)
+
+  packageType      String
+  weightKg         Float
+  lengthCm         Float?
+  widthCm          Float?
+  heightCm         Float?
+  description      String?
+  declaredValue    Int?
+  isFragile        Boolean        @default(false)
+
+  currentAssignedDriverId String?
+  currentAssignedDriver   DriverProfile? @relation("AssignedDriver", fields: [currentAssignedDriverId], references: [id], onDelete: SetNull)
+
+  deliveryAttempts Int            @default(0)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  cancelledAt      DateTime?
+
+  statusHistory    ShipmentStatusHistory[]
+  hubMovements     HubMovement[]
+  assignments      DriverAssignment[]
+  payment          Payment?
+  pricingSnapshot  PricingSnapshot?
+  deliveryProof    DeliveryProof?
+
+  @@index([customerId])
+  @@index([status])
+  @@index([originHubId])
+  @@index([destinationHubId])
+  @@index([currentAssignedDriverId])
+  @@index([createdAt])
+  @@index([trackingNumber])
+}
+
+model ShipmentStatusHistory {
+  id             String         @id @default(cuid())
+  shipmentId     String
+  shipment       Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  fromStatus     ShipmentStatus?
+  toStatus       ShipmentStatus
+  actorUserId    String?
+  actorRole      Role?
+  hubId          String?
+  hub            Hub?           @relation(fields: [hubId], references: [id], onDelete: SetNull)
+  note           String?
+  createdAt      DateTime       @default(now())
+
+  @@index([shipmentId])
+  @@index([createdAt])
+  @@index([hubId])
+}
+
+model HubMovement {
+  id            String    @id @default(cuid())
+  shipmentId    String
+  shipment      Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  fromHubId     String?
+  fromHub       Hub?      @relation("FromHub", fields: [fromHubId], references: [id], onDelete: SetNull)
+  toHubId       String
+  toHub         Hub       @relation("ToHub", fields: [toHubId], references: [id], onDelete: Restrict)
+  dispatchedAt  DateTime?
+  arrivedAt     DateTime?
+  actorUserId   String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  @@index([shipmentId])
+  @@index([toHubId])
+  @@index([fromHubId])
+}
+
+model DriverAssignment {
+  id           String   @id @default(cuid())
+  shipmentId   String
+  shipment     Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  driverId     String
+  driver       DriverProfile @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  assignedById String
+  assignedAt   DateTime @default(now())
+  unassignedAt DateTime?
+  isActive     Boolean  @default(true)
+
+  @@index([shipmentId])
+  @@index([driverId])
+  @@index([isActive])
+}
+
+model PricingRule {
+  id              String      @id @default(cuid())
+  serviceType     ServiceType
+  originZone      String      // e.g. city or zone code, or "ANY"
+  destinationZone String      // e.g. city or zone code, or "ANY"
+  baseFee         Int
+  perKgFee        Int         @default(0)
+  codFeeFlat      Int         @default(0)
+  codFeePercent   Float       @default(0)
+  isActive        Boolean     @default(true)
+  effectiveFrom   DateTime    @default(now())
+  effectiveTo     DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@index([serviceType, originZone, destinationZone])
+  @@index([isActive])
+}
+
+model PricingSnapshot {
+  id              String   @id @default(cuid())
+  shipmentId      String   @unique
+  shipment        Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  pricingRuleId   String?
+  baseFee         Int
+  weightSurcharge Int
+  codFee          Int
+  totalFee        Int
+  breakdownJson   Json
+  createdAt       DateTime @default(now())
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  shipmentId      String        @unique
+  shipment        Shipment      @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  paymentType     PaymentType
+  amountExpected  Int
+  amountCollected Int?
+  status          PaymentStatus @default(PENDING)
+  hasDiscrepancy  Boolean       @default(false)
+  discrepancyNote String?
+  collectedById   String?
+  collectedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status])
+}
+
+model DeliveryProof {
+  id            String   @id @default(cuid())
+  shipmentId    String   @unique
+  shipment      Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  recipientName String?
+  note          String?
+  proofImageUrl String?
+  createdAt     DateTime @default(now())
+}
+
+model Notification {
+  id                String   @id @default(cuid())
+  userId            String
+  title             String
+  body              String
+  isRead            Boolean  @default(false)
+  relatedShipmentId String?
+  createdAt         DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorRole   Role?
+  action      String
+  entityType  String
+  entityId    String
+  metadataJson Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model SystemSettings {
+  id                  String   @id @default("singleton")
+  companyName         String   @default("EliteShip")
+  companyPhone        String?
+  companyEmail        String?
+  companyAddress      String?
+  currency            String   @default("PKR")
+  timezone            String   @default("Asia/Karachi")
+  trackingPrefix      String   @default("ESH")
+  maxDeliveryAttempts Int      @default(3)
+  updatedAt           DateTime @updatedAt
+}
+
+model TrackingCounter {
+  id           String   @id @default(cuid())
+  year         Int      @unique
+  lastSequence Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@index([year])
+}

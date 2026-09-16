@@ -1,0 +1,29 @@
+{
+  "name": "eliteship-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EliteShip Courier & Logistics Management Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "prisma:generate": "prisma generate",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "seed:staff": "tsx prisma/seed-staff.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
