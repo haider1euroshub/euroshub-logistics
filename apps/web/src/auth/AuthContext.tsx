@@ -19,7 +19,7 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, fullName: string, phone: string) => Promise<void>;
+  register: (email: string, pass: string, fullName: string, phone: string) => Promise<{ requiresVerification: boolean; email: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -106,8 +106,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, password: pass, fullName, phone }),
     });
 
-    // Automatically sign in after registering
-    await login(email, pass);
+    try {
+      // If project has auto-confirm enabled or session is granted, sign in
+      await login(email, pass);
+      return { requiresVerification: false, email };
+    } catch {
+      // If email verification is mandatory in Supabase, sign-in throws 'Email not confirmed'
+      return { requiresVerification: true, email };
+    }
   };
 
   const logout = async () => {

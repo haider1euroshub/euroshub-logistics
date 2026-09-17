@@ -19,11 +19,19 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
   try {
     const data = registerSchema.parse(req.body);
 
-    // 1. Create user in Supabase Auth
+    // Check if user already exists locally
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+    if (existingUser) {
+      throw new AppError('An account with this email address already exists.', 409, 'USER_ALREADY_EXISTS');
+    }
+
+    // 1. Create user in Supabase Auth with unconfirmed email
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
-      email_confirm: true,
+      email_confirm: false,
       user_metadata: {
         fullName: data.fullName,
         role: Role.CUSTOMER,
@@ -34,26 +42,43 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       throw new AppError(authError?.message || 'Failed to create user account.', 400, 'AUTH_ERROR');
     }
 
-    // 2. Provision local User + CustomerProfile in transaction
-    const user = await prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
-        data: {
-          supabaseUserId: authData.user.id,
-          email: data.email,
-          fullName: data.fullName,
-          phone: data.phone,
-          role: Role.CUSTOMER, // ALWAYS forced to CUSTOMER
-          isActive: true,
-          customerProfile: {
-            create: {},
-          },
-        },
-        include: {
-          customerProfile: true,
-        },
+    // 2. Trigger confirmation email via Supabase
+    try {
+      await supabaseAdmin.auth.resend({
+        type: 'signup',
+        email: data.email,
       });
-      return newUser;
-    });
+    } catch {
+      // Supabase email initiation logged if SMTP unconfigured; continue flow
+    }
+
+    // 3. Provision local User + CustomerProfile with rollback on failure
+    let user;
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            supabaseUserId: authData.user.id,
+            email: data.email,
+            fullName: data.fullName,
+            phone: data.phone,
+            role: Role.CUSTOMER, // ALWAYS forced to CUSTOMER
+            isActive: true,
+            customerProfile: {
+              create: {},
+            },
+          },
+          include: {
+            customerProfile: true,
+          },
+        });
+        return newUser;
+      });
+    } catch (dbError) {
+      // Clean up orphaned Supabase auth user if local DB insert fails
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id).catch(() => {});
+      throw dbError;
+    }
 
     return sendSuccess(res, {
       user: {
@@ -61,8 +86,9 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        emailConfirmed: false,
       },
-      message: 'Registration successful. You can now log in.',
+      message: 'Registration successful. A verification email has been sent. Please confirm your email address before logging in.',
     }, 201);
   } catch (error) {
     next(error);

@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button.js';
 import { DataTable, Column } from '../components/ui/DataTable.js';
 import { Modal } from '../components/ui/Modal.js';
 import { Skeleton } from '../components/ui/Skeleton.js';
-import { Toast } from '../components/ui/Toast.js';
+import { useToast } from '../components/ui/Toast.js';
 import {
   Package,
   PackageCheck,
@@ -82,10 +82,9 @@ export const CustomerDashboardPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [copiedNumber, setCopiedNumber] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
-
+  const { toast } = useToast();
   const showToast = (message: string, variant: 'success' | 'error' = 'success') => {
-    setToast({ message, variant });
+    toast(message, variant);
   };
 
   const copyTracking = (num: string, e?: React.MouseEvent) => {
@@ -264,13 +263,6 @@ export const CustomerDashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {toast && (
-        <Toast
-          message={toast.message}
-          variant={toast.variant}
-          onClose={() => setToast(null)}
-        />
-      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

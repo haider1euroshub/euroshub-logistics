@@ -532,6 +532,15 @@ const handleStatusTransition = async (req: Request, res: Response, next: NextFun
 
     if (!shipment) throw new AppError('Shipment not found.', 404, 'NOT_FOUND');
 
+    // Deliveries must go through POST /api/shipments/:id/deliver for payment reconciliation
+    if (body.toStatus === ShipmentStatus.DELIVERED) {
+      throw new AppError(
+        'Delivery completion must be processed through POST /api/shipments/:id/deliver to ensure payment reconciliation and delivery proof.',
+        400,
+        'USE_DELIVER_ENDPOINT'
+      );
+    }
+
     // 1. Validate Transition per StateMachineService
     await StateMachineService.validateTransition({
       shipment,
@@ -747,8 +756,16 @@ router.post(
         throw new AppError('You are not the assigned driver for this shipment.', 403, 'FORBIDDEN');
       }
 
+      if (shipment.status === ShipmentStatus.DELIVERED) {
+        throw new AppError('This shipment has already been marked as DELIVERED.', 409, 'ALREADY_DELIVERED');
+      }
+
       if (shipment.status !== ShipmentStatus.OUT_FOR_DELIVERY) {
-        throw new AppError('Shipment must be OUT_FOR_DELIVERY to mark DELIVERED.', 400, 'INVALID_STATUS');
+        throw new AppError(
+          `Shipment must be OUT_FOR_DELIVERY to mark DELIVERED (current status: ${shipment.status}).`,
+          400,
+          'INVALID_STATUS'
+        );
       }
 
       // COD Validation
@@ -762,6 +779,20 @@ router.post(
       }
 
       const updated = await prisma.$transaction(async (tx) => {
+        // Re-check status inside transaction to prevent race conditions
+        const fresh = await tx.shipment.findUnique({
+          where: { id },
+          include: { payment: true },
+        });
+
+        if (!fresh || fresh.status === ShipmentStatus.DELIVERED) {
+          throw new AppError('This shipment has already been delivered.', 409, 'ALREADY_DELIVERED');
+        }
+
+        if (fresh.paymentType === PaymentType.COD && fresh.payment?.status === PaymentStatus.COLLECTED && fresh.payment?.collectedAt) {
+          throw new AppError('Payment has already been reconciled for this shipment.', 409, 'PAYMENT_ALREADY_COLLECTED');
+        }
+
         // 1. Update Shipment status
         const s = await tx.shipment.update({
           where: { id },

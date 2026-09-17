@@ -7,9 +7,10 @@ import { DataTable, Column } from '../components/ui/DataTable.js';
 import { Modal } from '../components/ui/Modal.js';
 import { Input } from '../components/ui/Input.js';
 import { Select } from '../components/ui/Select.js';
-import { Toast } from '../components/ui/Toast.js';
+import { useToast } from '../components/ui/Toast.js';
 import { Skeleton } from '../components/ui/Skeleton.js';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.js';
+import { useAuth } from '../auth/AuthContext.js';
 import {
  Users,
  Warehouse,
@@ -179,19 +180,14 @@ export const AdminConsolePage: React.FC = () => {
  }
  }, [tab, navigate]);
 
- const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
+  const { showToast } = useToast();
 
- const showToast = (message: string, variant: 'success' | 'error' = 'success') => {
- setToast({ message, variant });
- };
+  const handleTabChange = (id: TabId) => {
+    navigate(`/admin/${id}`);
+  };
 
- const handleTabChange = (id: TabId) => {
-   navigate(`/admin/${id}`);
- };
-
- return (
- <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
- {toast && <Toast message={toast.message} variant={toast.variant} onClose={() => setToast(null)} />}
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
  {/* Header */}
  <div className="flex items-center gap-3">
@@ -424,6 +420,7 @@ const ReportsTab: React.FC<{ showToast: (m: string, v?: 'success' | 'error') => 
 // ─── Users Tab ────────────────────────────────────────────────────────────────
 
 const UsersTab: React.FC<{ showToast: (m: string, v?: 'success' | 'error') => void }> = ({ showToast }) => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [hubs, setHubs] = useState<Hub[]>([]);
   const [loading, setLoading] = useState(true);
@@ -432,6 +429,10 @@ const UsersTab: React.FC<{ showToast: (m: string, v?: 'success' | 'error') => vo
   const [page, setPage] = useState(1);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+
+  // Deletion modal state
+  const [deleteTargetUser, setDeleteTargetUser] = useState<UserRow | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Role & Hub Change modal state
   const [roleModalUser, setRoleModalUser] = useState<UserRow | null>(null);
@@ -472,14 +473,43 @@ const UsersTab: React.FC<{ showToast: (m: string, v?: 'success' | 'error') => vo
 
   const handleToggleActive = async (u: UserRow) => {
     try {
-      await apiClient(`/api/admin/users/${u.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive: !u.isActive }),
-      });
-      showToast(`User ${u.fullName} ${!u.isActive ? 'activated' : 'deactivated'}.`);
-      await fetchUsers();
+      if (!u.isActive) {
+        await apiClient(`/api/admin/users/${u.id}/reactivate`, { method: 'PATCH' });
+        showToast(`User ${u.fullName} reactivated.`);
+        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: true } : x)));
+      } else {
+        await apiClient(`/api/admin/users/${u.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ isActive: false }),
+        });
+        showToast(`User ${u.fullName} deactivated.`);
+        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: false } : x)));
+      }
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Failed to update user status.', 'error');
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTargetUser) return;
+    setDeleteLoading(true);
+    try {
+      const res = await apiClient<{ message: string; action: 'DEACTIVATED' | 'DELETED'; user?: UserRow }>(
+        `/api/admin/users/${deleteTargetUser.id}`,
+        { method: 'DELETE' }
+      );
+      showToast(res.message, 'success');
+      const targetId = deleteTargetUser.id;
+      setDeleteTargetUser(null);
+      if (res.action === 'DELETED') {
+        setUsers((prev) => prev.filter((u) => u.id !== targetId));
+      } else {
+        setUsers((prev) => prev.map((u) => (u.id === targetId ? { ...u, isActive: false } : u)));
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to delete user.', 'error');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -637,6 +667,18 @@ const UsersTab: React.FC<{ showToast: (m: string, v?: 'success' | 'error') => vo
           >
             {row.isActive ? <ToggleRight className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-slate-400" />}
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setDeleteTargetUser(row); }}
+            disabled={currentUser?.id === row.id}
+            className={`p-1.5 rounded transition-colors ${
+              currentUser?.id === row.id
+                ? 'text-slate-300 cursor-not-allowed'
+                : 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+            }`}
+            title={currentUser?.id === row.id ? 'Cannot delete your own account' : 'Delete or Deactivate User'}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       ),
     },
@@ -771,6 +813,22 @@ const UsersTab: React.FC<{ showToast: (m: string, v?: 'success' | 'error') => vo
           </div>
         </Modal>
       )}
+
+      {/* Delete / Deactivate Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteTargetUser)}
+        title="Delete or Deactivate User"
+        message={
+          deleteTargetUser
+            ? `Are you sure you want to delete ${deleteTargetUser.fullName} (${deleteTargetUser.email})? If this user has active assignments or historical records (shipments, audit logs, etc.), they will be safely deactivated and prevented from logging in. If they have no operational history, their account will be permanently deleted.`
+            : ''
+        }
+        confirmLabel="Confirm Delete"
+        variant="danger"
+        isLoading={deleteLoading}
+        onConfirm={handleDeleteUser}
+        onCancel={() => setDeleteTargetUser(null)}
+      />
     </div>
   );
 };

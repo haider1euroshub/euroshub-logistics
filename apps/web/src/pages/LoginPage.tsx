@@ -45,7 +45,14 @@ export const LoginPage: React.FC = () => {
         window.location.href = '/';
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password.');
+      const msg = err?.message || '';
+      if (/email not confirmed/i.test(msg)) {
+        setError('Your email address has not been confirmed yet. Please check your inbox for the verification link before logging in.');
+      } else if (/inactive/i.test(msg) || /account_inactive/i.test(msg)) {
+        setError('This account has been deactivated. Please contact your system administrator.');
+      } else {
+        setError(msg || 'Invalid email or password.');
+      }
     } finally {
       setLoading(false);
     }

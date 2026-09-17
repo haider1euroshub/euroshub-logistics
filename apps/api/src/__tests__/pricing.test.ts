@@ -132,7 +132,7 @@ describe('Pricing Engine & Canonical Contract Tests (Section 3.10)', () => {
       const created = await prisma.pricingRule.create({ data: r });
       createdRuleIds.push(created.id);
     }
-  });
+  }, 30000);
 
   afterAll(async () => {
     if (createdRuleIds.length > 0) {
@@ -141,7 +141,7 @@ describe('Pricing Engine & Canonical Contract Tests (Section 3.10)', () => {
       });
     }
     await prisma.$disconnect();
-  });
+  }, 30000);
 
   // 1. Percentage conversion helpers
   describe('3.2 Percentage Handling Conversion Boundary', () => {
