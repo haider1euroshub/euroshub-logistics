@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthContext.js';
+import { apiClient } from '../api/client.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
 import { Truck, AlertCircle } from 'lucide-react';
@@ -29,19 +30,10 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
-      const token = localStorage.getItem('euroshub_auth_token') || localStorage.getItem('eliteship_auth_token');
-      const profileResp = await fetch(
-        (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000') + '/api/auth/me',
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-          },
-        }
-      );
-      if (profileResp.ok) {
-        const { data } = await profileResp.json();
+      try {
+        const data = await apiClient<{ user: { role: Role } }>('/api/auth/me');
         window.location.href = getRoleDashboard(data?.user?.role);
-      } else {
+      } catch {
         window.location.href = '/';
       }
     } catch (err: any) {

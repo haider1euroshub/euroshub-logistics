@@ -17,18 +17,34 @@ import notificationRoutes from './routes/notification.routes.js';
 export const app = express();
 
 // 1. Core middlewares
+// Build allowed-origin set once at startup from the comma-separated
+// CORS_ORIGINS env var (or fall back to the singular CORS_ORIGIN).
+// Always add localhost ports used in local development.
+const allowedOrigins = new Set<string>([
+  ...env.CORS_ORIGINS,
+  'http://localhost:5173',
+  'http://localhost:4000',
+]);
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // In development allow localhost or no origin (e.g. mobile/curl)
-      if (!origin || origin.startsWith('http://localhost:') || origin === env.CORS_ORIGIN) {
+      // Allow server-to-server / curl / Postman (no Origin header)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      // Also allow any localhost port dynamically during development
+      if (env.NODE_ENV !== 'production' && origin.startsWith('http://localhost:')) {
         return callback(null, true);
       }
-      return callback(new Error('Blocked by CORS policy'));
+      return callback(new Error(`CORS: origin '${origin}' is not allowed`));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 200, // Some browsers (IE11) choke on 204
   })
 );
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
