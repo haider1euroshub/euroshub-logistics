@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext.js';
 import { apiClient, ApiError } from '../api/client.js';
 import { Button } from '../components/ui/Button.js';
 import { Badge } from '../components/ui/Badge.js';
+import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Modal } from '../components/ui/Modal.js';
 import { Skeleton } from '../components/ui/Skeleton.js';
 import { useToast } from '../components/ui/Toast.js';
@@ -836,18 +837,7 @@ export const HubDashboardPage: React.FC = () => {
                         {s.weightKg} kg
                       </td>
                       <td className="py-3 px-3">
-                        <Badge
-                          variant={
-                            s.status === 'DELIVERY_FAILED'
-                              ? 'danger'
-                              : s.status === 'RESCHEDULED'
-                              ? 'warning'
-                              : 'info'
-                          }
-                          size="sm"
-                        >
-                          {s.status.replace(/_/g, ' ')}
-                        </Badge>
+                        <StatusBadge status={s.status} size="sm" />
                       </td>
                       <td className="py-3 px-3 text-right">
                         <Button
@@ -930,12 +920,7 @@ export const HubDashboardPage: React.FC = () => {
                         <p className="text-[11px] text-slate-500 truncate max-w-xs">{s.receiverAddress}</p>
                       </td>
                       <td className="py-3 px-3">
-                        <Badge
-                          variant={s.status === 'OUT_FOR_DELIVERY' ? 'warning' : 'info'}
-                          size="sm"
-                        >
-                          {s.status.replace(/_/g, ' ')}
-                        </Badge>
+                        <StatusBadge status={s.status} size="sm" />
                       </td>
                       <td className="py-3 px-3">
                         {s.paymentType === 'COD' && s.codAmount ? (

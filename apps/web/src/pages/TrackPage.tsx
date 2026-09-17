@@ -1,27 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { apiClient, ApiError } from '../api/client.js';
-import { Badge } from '../components/ui/Badge.js';
-import type { BadgeProps } from '../components/ui/Badge.js';
+import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Skeleton } from '../components/ui/Skeleton.js';
 import { Search, Compass, ShieldCheck, Calendar, MapPin, AlertCircle, Copy, Check } from 'lucide-react';
 import { formatDateTimePST } from '@eliteship/shared';
-
-const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
-  CREATED:            'warning',
-  PICKUP_SCHEDULED:   'warning',
-  PICKED_UP:          'info',
-  AT_ORIGIN_HUB:      'info',
-  IN_TRANSIT:         'info',
-  AT_DESTINATION_HUB: 'info',
-  ASSIGNED_TO_DRIVER: 'info',
-  OUT_FOR_DELIVERY:   'warning',
-  DELIVERED:          'success',
-  DELIVERY_FAILED:    'danger',
-  RETURNED:           'danger',
-  CANCELLED:          'danger',
-  RESCHEDULED:        'warning',
-};
 
 export const TrackPage: React.FC = () => {
   const { trackingNumber: routeNumber } = useParams<{ trackingNumber?: string }>();
@@ -173,9 +156,11 @@ export const TrackPage: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Badge variant={STATUS_VARIANT[data.status] ?? 'default'} size="md">
-                {data.statusLabel || data.status?.replace(/_/g, ' ')}
-              </Badge>
+              <StatusBadge
+                status={data.status}
+                customLabel={data.statusLabel}
+                size="md"
+              />
             </div>
           </div>
 

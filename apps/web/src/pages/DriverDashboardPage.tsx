@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../auth/AuthContext.js';
 import { apiClient, ApiError } from '../api/client.js';
 import { Badge } from '../components/ui/Badge.js';
+import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { Modal } from '../components/ui/Modal.js';
 import { Skeleton } from '../components/ui/Skeleton.js';
@@ -61,13 +62,7 @@ interface DashboardSummary {
 
 type DeliveryAction = 'start' | 'complete' | 'fail' | null;
 
-const STATUS_COLOR: Record<string, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
-  ASSIGNED_TO_DRIVER: 'info',
-  OUT_FOR_DELIVERY: 'warning',
-  DELIVERED: 'success',
-  DELIVERY_FAILED: 'danger',
-  RESCHEDULED: 'warning',
-};
+
 
 export const DriverDashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -226,9 +221,7 @@ export const DriverDashboardPage: React.FC = () => {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs font-bold text-brand-700">{s.trackingNumber}</span>
-          <Badge variant={STATUS_COLOR[s.status] || 'default'} size="sm">
-            {s.status.replace(/_/g, ' ')}
-          </Badge>
+          <StatusBadge status={s.status} size="sm" />
           {s.paymentType === 'COD' ? (
             <Badge variant="warning" size="sm">
               COD
@@ -385,9 +378,7 @@ export const DriverDashboardPage: React.FC = () => {
         >
           <div className="space-y-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={STATUS_COLOR[selectedShipment.status] || 'default'}>
-                {selectedShipment.status.replace(/_/g, ' ')}
-              </Badge>
+              <StatusBadge status={selectedShipment.status} size="md" />
               {selectedShipment.paymentType === 'COD' ? (
                 <Badge variant="warning">COD</Badge>
               ) : (
@@ -406,11 +397,25 @@ export const DriverDashboardPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                {selectedShipment.receiverAddress}, {selectedShipment.receiverCity}
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(selectedShipment.receiverAddress + ', ' + selectedShipment.receiverCity)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-brand-600 hover:underline transition-colors"
+                  title="Open in Maps"
+                >
+                  {selectedShipment.receiverAddress}, {selectedShipment.receiverCity}
+                </a>
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-                {selectedShipment.receiverPhone}
+                <a
+                  href={`tel:${selectedShipment.receiverPhone}`}
+                  className="font-medium text-brand-600 hover:underline"
+                  title="Call Customer"
+                >
+                  {selectedShipment.receiverPhone}
+                </a>
               </div>
             </div>
 

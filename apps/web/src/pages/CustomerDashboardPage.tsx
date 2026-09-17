@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.js';
 import { apiClient } from '../api/client.js';
 import { Badge } from '../components/ui/Badge.js';
+import { StatusBadge } from '../components/ui/StatusBadge.js';
 import { Button } from '../components/ui/Button.js';
 import { DataTable, Column } from '../components/ui/DataTable.js';
 import { Modal } from '../components/ui/Modal.js';
@@ -56,21 +57,6 @@ interface DashboardData {
   total?: number;
 }
 
-const STATUS_COLOR: Record<string, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
-  CREATED: 'warning',
-  PICKUP_SCHEDULED: 'warning',
-  PICKED_UP: 'info',
-  AT_ORIGIN_HUB: 'info',
-  IN_TRANSIT: 'info',
-  AT_DESTINATION_HUB: 'info',
-  ASSIGNED_TO_DRIVER: 'info',
-  OUT_FOR_DELIVERY: 'warning',
-  DELIVERED: 'success',
-  DELIVERY_FAILED: 'danger',
-  RETURNED: 'danger',
-  CANCELLED: 'danger',
-  RESCHEDULED: 'warning',
-};
 
 export const CustomerDashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -162,11 +148,7 @@ export const CustomerDashboardPage: React.FC = () => {
     {
       key: 'status',
       header: 'Current Status',
-      render: (row) => (
-        <Badge variant={STATUS_COLOR[row.status] || 'default'} size="sm">
-          {row.status.replace(/_/g, ' ')}
-        </Badge>
-      ),
+      render: (row) => <StatusBadge status={row.status} size="sm" />,
     },
     {
       key: 'receiverName',
@@ -313,6 +295,53 @@ export const CustomerDashboardPage: React.FC = () => {
         ))}
       </div>
 
+      {/* Active Attention Area: In-Transit / Out for Delivery Highlights */}
+      {!loading && inTransit > 0 && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TruckIcon className="w-4 h-4 text-sky-700" />
+              <h3 className="text-sm font-bold text-sky-900">
+                Active Shipments in Transit ({inTransit})
+              </h3>
+            </div>
+            <span className="text-[11px] text-sky-700 font-medium">Currently Moving in Network</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {shipments
+              .filter((s) =>
+                [
+                  ShipmentStatus.IN_TRANSIT,
+                  ShipmentStatus.OUT_FOR_DELIVERY,
+                  ShipmentStatus.ASSIGNED_TO_DRIVER,
+                  ShipmentStatus.AT_DESTINATION_HUB,
+                ].includes(s.status as ShipmentStatus)
+              )
+              .slice(0, 3)
+              .map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => setSelectedShipment(s)}
+                  className="bg-white p-3.5 rounded-lg border border-sky-100 shadow-2xs hover:border-sky-300 transition-colors cursor-pointer space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-brand-700">{s.trackingNumber}</span>
+                    <StatusBadge status={s.status} size="sm" />
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    <p className="font-semibold text-slate-800 truncate">{s.receiverName}</p>
+                    <p className="text-slate-400">{s.senderCity} → {s.receiverCity}</p>
+                  </div>
+                  <div className="pt-1 flex items-center justify-between text-[11px] text-brand-600 font-semibold border-t border-slate-100">
+                    <span>View Journey Details</span>
+                    <Compass className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Shipments Table Container */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4">
         <DataTable<Shipment>
@@ -356,9 +385,7 @@ export const CustomerDashboardPage: React.FC = () => {
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <Badge variant={STATUS_COLOR[row.status] || 'default'} size="sm">
-                  {row.status.replace(/_/g, ' ')}
-                </Badge>
+                <StatusBadge status={row.status} size="sm" />
               </div>
               <div className="text-sm font-semibold text-slate-900">{row.receiverName}</div>
               <div className="text-xs text-slate-500">{row.senderCity} → {row.receiverCity}</div>
@@ -428,9 +455,7 @@ export const CustomerDashboardPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={STATUS_COLOR[selectedShipment.status] || 'default'}>
-                  {selectedShipment.status.replace(/_/g, ' ')}
-                </Badge>
+                <StatusBadge status={selectedShipment.status} size="md" />
                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700 uppercase">
                   {selectedShipment.serviceType}
                 </span>

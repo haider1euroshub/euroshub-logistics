@@ -14,8 +14,10 @@ import {
   CheckCircle2,
   Banknote,
   Boxes,
+  AlertCircle,
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
+import { Skeleton } from '../components/ui/Skeleton.js';
 import { formatPKR } from '@eliteship/shared';
 
 interface PublicHub {
@@ -63,10 +65,14 @@ export const HomePage: React.FC = () => {
   const [calcService, setCalcService] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
   const [estimate, setEstimate] = useState<any>(null);
   const [isEstimating, setIsEstimating] = useState(false);
+  const [hubsLoading, setHubsLoading] = useState(true);
+  const [hubsError, setHubsError] = useState(false);
 
   // Load public hubs, cities, and company settings
   useEffect(() => {
     const loadPublicData = async () => {
+      setHubsLoading(true);
+      setHubsError(false);
       try {
         const [hubData, settingsData] = await Promise.all([
           apiClient<{ hubs: PublicHub[]; cities: string[] }>('/api/hubs/public'),
@@ -85,7 +91,9 @@ export const HomePage: React.FC = () => {
           setSettings((prev) => ({ ...prev, ...settingsData.settings }));
         }
       } catch {
-        // Fallbacks remain in state
+        setHubsError(true);
+      } finally {
+        setHubsLoading(false);
       }
     };
     loadPublicData();
@@ -377,28 +385,55 @@ export const HomePage: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {hubs.map((hub) => (
-              <div
-                key={hub.id || hub.code}
-                className="p-4 rounded-xl border border-slate-100 bg-slate-50/75 hover:bg-slate-50 transition-colors space-y-1.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 text-sm">{hub.city}</span>
-                  <span className="font-mono text-[11px] font-extrabold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
-                    {hub.code}
-                  </span>
+          {hubsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/75 space-y-2">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-5 w-12" />
+                  </div>
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
                 </div>
-                <p className="text-xs font-medium text-slate-700">{hub.name}</p>
-                <p className="text-xs text-slate-500 leading-tight">{hub.address}</p>
-                {hub.phone && (
-                  <p className="text-[11px] text-slate-500 flex items-center gap-1 pt-1">
-                    <Phone className="w-3 h-3 text-slate-400" /> {hub.phone}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : hubsError && hubs.length === 0 ? (
+            <div className="text-center py-8 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+              <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-700">Hub Network Directory Unavailable</p>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Unable to load regional distribution hubs right now. Operational hubs continue processing consignments.
+              </p>
+            </div>
+          ) : hubs.length === 0 ? (
+            <div className="text-center py-8 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+              <p className="text-sm font-semibold text-slate-700">No Regional Hubs Listed</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {hubs.map((hub) => (
+                <div
+                  key={hub.id || hub.code}
+                  className="p-4 rounded-xl border border-slate-100 bg-slate-50/75 hover:bg-slate-50 transition-colors space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-sm">{hub.city}</span>
+                    <span className="font-mono text-[11px] font-extrabold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                      {hub.code}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-700">{hub.name}</p>
+                  <p className="text-xs text-slate-500 leading-tight">{hub.address}</p>
+                  {hub.phone && (
+                    <p className="text-[11px] text-slate-500 flex items-center gap-1 pt-1">
+                      <Phone className="w-3 h-3 text-slate-400" /> {hub.phone}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
